@@ -8,33 +8,39 @@ object Dominoes {
   def chain(dominoes: List[Domino]): Option[List[Domino]] = {
     if (dominoes.isEmpty) return Some(List())
 
+    // count of normalized dominoes.
     val dominoCount: Map[Domino, Int] =
       dominoes.groupBy(normalize).view.mapValues(_.size).toMap
 
-    val dominoesByOne: Map[Int, List[Domino]] =
-      (dominoes ++ dominoes.map(_.swap)).groupBy(_._1).view.mapValues(_.map(normalize)).toMap
+    // possible candidates given one side of a domino.
+    val connections: Map[Int, List[Int]] =
+      (dominoes ++ dominoes.map(_.swap)).groupBy(_._1).view.mapValues(_.map(_._2)).toMap
 
+    // backtrack is deep first search.
     @tailrec
     def backtrack(current: Domino, count: Map[Domino, Int], acc: List[Domino]): Option[List[Domino]] = {
-      val normalizedCurrent = normalize(current)
-      val newCount = count.updated(normalizedCurrent, count(normalizedCurrent) - 1)
-      val newAcc = current :: acc
+      val newAcc: List[Domino] = current :: acc
 
-      if (newCount.values.sum == 0) {
+      if (count.values.sum == 0) {
         val (head, last) = (newAcc.head, newAcc.last)
-        val result = if (head._1 == last._2) Some(newAcc) else None
+        val result: Option[List[Domino]] = if (head._1 == last._2) Some(newAcc) else None
         return result
       }
 
       // always add to head, thus _1.
-      val normalizedNext: Option[Domino] = dominoesByOne(current._1).find(newCount(_) > 0)
+      val a: Int = current._1
+      val normalizedNext: Option[Domino] = connections(a).map(b => normalize((a, b))).find(count(_) > 0)
 
-      if (normalizedNext.isEmpty) None else {
-        val next = normalizedNext.get
-        backtrack(if (current._1 == next._2) next else next.swap, newCount, newAcc)
+      if (normalizedNext.isEmpty) None
+      else {
+        val next: Domino = normalizedNext.get
+        val newCount: Map[Domino, Int] = count.updated(next, count(next) - 1)
+        backtrack(if (next._2 == a) next else next.swap, newCount, newAcc)
       }
     }
 
-    backtrack(dominoes.head, dominoCount, List())
+    val current: Domino = normalize(dominoes.head)
+    backtrack(current, dominoCount.updated(current, dominoCount(current) - 1), List())
   }
+
 }
